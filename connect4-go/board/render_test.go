@@ -8,9 +8,9 @@ import (
 func TestRenderEmptyBoard(t *testing.T) {
 	b := New()
 
-	got := Render(b)
+	got := Render(b, 0)
 
-	wantRows := Rows + 1 // board rows + border row
+	wantRows := Rows + 2 // selector row + board rows + border row
 	if gotRows := strings.Count(got, "\n"); gotRows != wantRows {
 		t.Errorf("Render() produced %d lines, want %d", gotRows, wantRows)
 	}
@@ -29,16 +29,41 @@ func TestRenderShowsDroppedPieces(t *testing.T) {
 		t.Fatalf("Drop(3) returned error %v, want nil", err)
 	}
 
-	got := Render(b)
+	got := Render(b, 0)
 
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
-	bottomRow := lines[Rows-1]
-	secondFromBottomRow := lines[Rows-2]
+	const selectorRows = 1
+	bottomRow := lines[selectorRows+Rows-1]
+	secondFromBottomRow := lines[selectorRows+Rows-2]
 
 	if !strings.Contains(bottomRow, "X") {
 		t.Errorf("bottom row %q does not contain Player1 symbol X", bottomRow)
 	}
 	if !strings.Contains(secondFromBottomRow, "O") {
 		t.Errorf("second from bottom row %q does not contain Player2 symbol O", secondFromBottomRow)
+	}
+}
+
+func TestRenderSelectorMarksCursorColumn(t *testing.T) {
+	b := New()
+
+	for _, cursor := range []int{0, 3, Cols - 1} {
+		got := Render(b, cursor)
+
+		lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+		selectorRow := lines[0]
+		cells := strings.Split(strings.Trim(selectorRow, "|"), "|")
+		if len(cells) != Cols {
+			t.Fatalf("Render(_, %d) selector row %q has %d cells, want %d", cursor, selectorRow, len(cells), Cols)
+		}
+		for col, cell := range cells {
+			marked := strings.Contains(cell, "v")
+			if col == cursor && !marked {
+				t.Errorf("Render(_, %d) selector row %q does not mark column %d", cursor, selectorRow, col)
+			}
+			if col != cursor && marked {
+				t.Errorf("Render(_, %d) selector row %q unexpectedly marks column %d", cursor, selectorRow, col)
+			}
+		}
 	}
 }
