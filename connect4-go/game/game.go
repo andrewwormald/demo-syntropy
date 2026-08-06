@@ -7,6 +7,7 @@ import (
 
 	"connect4-go/board"
 	"connect4-go/input"
+	"connect4-go/screen"
 )
 
 // Game holds the in-progress board state and the column currently selected
@@ -71,8 +72,9 @@ func announcement(b *board.Board) string {
 // writing an end-of-game announcement in the first two cases.
 func Run(r io.Reader, w io.Writer) error {
 	g := New()
+	scr := screen.New(w)
 
-	if _, err := io.WriteString(w, board.Render(g.Board, g.Cursor)); err != nil {
+	if err := scr.Render(board.RenderLines(g.Board, g.Cursor)); err != nil {
 		return err
 	}
 
@@ -100,7 +102,7 @@ func Run(r io.Reader, w io.Writer) error {
 			}
 
 			dropped := g.HandleKey(key)
-			if _, werr := io.WriteString(w, board.Render(g.Board, g.Cursor)); werr != nil {
+			if werr := scr.Render(board.RenderLines(g.Board, g.Cursor)); werr != nil {
 				return werr
 			}
 			if dropped {
