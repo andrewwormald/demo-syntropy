@@ -44,6 +44,60 @@ func TestRenderShowsDroppedPieces(t *testing.T) {
 	}
 }
 
+func TestRenderLinesMatchesRender(t *testing.T) {
+	b := New()
+	if _, err := b.Drop(3); err != nil {
+		t.Fatalf("Drop(3) returned error %v, want nil", err)
+	}
+
+	lines := RenderLines(b, 2)
+	got := strings.Join(lines, "\n") + "\n"
+
+	want := Render(b, 2)
+	if got != want {
+		t.Errorf("RenderLines() joined = %q, want Render() = %q", got, want)
+	}
+}
+
+func TestRenderLinesCount(t *testing.T) {
+	b := New()
+
+	lines := RenderLines(b, 0)
+
+	wantLines := Rows + 2 // selector row + board rows + border row
+	if len(lines) != wantLines {
+		t.Errorf("RenderLines() returned %d lines, want %d", len(lines), wantLines)
+	}
+	for i, line := range lines {
+		if strings.Contains(line, "\n") {
+			t.Errorf("RenderLines()[%d] = %q contains a newline", i, line)
+		}
+	}
+}
+
+func TestRenderLinesShowsDroppedPieces(t *testing.T) {
+	b := New()
+	if _, err := b.Drop(3); err != nil {
+		t.Fatalf("Drop(3) returned error %v, want nil", err)
+	}
+	if _, err := b.Drop(3); err != nil {
+		t.Fatalf("Drop(3) returned error %v, want nil", err)
+	}
+
+	lines := RenderLines(b, 0)
+
+	const selectorRows = 1
+	bottomRow := lines[selectorRows+Rows-1]
+	secondFromBottomRow := lines[selectorRows+Rows-2]
+
+	if !strings.Contains(bottomRow, "X") {
+		t.Errorf("bottom row %q does not contain Player1 symbol X", bottomRow)
+	}
+	if !strings.Contains(secondFromBottomRow, "O") {
+		t.Errorf("second from bottom row %q does not contain Player2 symbol O", secondFromBottomRow)
+	}
+}
+
 func TestRenderSelectorMarksCursorColumn(t *testing.T) {
 	b := New()
 
