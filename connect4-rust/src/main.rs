@@ -1,4 +1,5 @@
 mod board;
+mod input;
 mod renderer;
 
 use board::Board;
