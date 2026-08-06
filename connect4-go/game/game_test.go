@@ -2,6 +2,7 @@ package game
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -90,6 +91,74 @@ func TestRunPlaysMovesFromInput(t *testing.T) {
 	last := renders[len(renders)-1]
 	if !strings.Contains(last, "X") {
 		t.Errorf("Run() final render = %q, want it to contain a dropped piece", last)
+	}
+}
+
+// TestRunEmitsDiffBasedFrames drives Run through a scripted key sequence
+// and asserts the literal byte stream it writes: a full initial draw of
+// every board line, then for each subsequent key only the cursor-move,
+// clear-line, and content bytes for the lines that actually changed,
+// exactly as screen.Writer documents. This ties frame, framediff, screen,
+// and the game loop together end to end, rather than only checking that
+// the final render contains an expected substring.
+func TestRunEmitsDiffBasedFrames(t *testing.T) {
+	// Right, Right, Enter: moves the cursor to column 2 and drops
+	// Player1's piece there.
+	r := bytes.NewReader([]byte{0x1b, '[', 'C', 0x1b, '[', 'C', '\r'})
+	var w bytes.Buffer
+
+	if err := Run(r, &w); err != nil {
+		t.Fatalf("Run() returned error %v, want nil", err)
+	}
+
+	initial := board.RenderLines(board.New(), 0)
+	afterRight1 := board.RenderLines(board.New(), 1)
+	afterRight2 := board.RenderLines(board.New(), 2)
+	dropped := board.New()
+	if _, err := dropped.Drop(2); err != nil {
+		t.Fatalf("Drop(2) returned error %v, want nil", err)
+	}
+	afterEnter := board.RenderLines(dropped, 2)
+
+	numLines := len(initial)
+
+	var want bytes.Buffer
+	// Initial full draw: every line is "changed" since there is no
+	// previous frame, so each is preceded by a cursor-down-and-clear and
+	// followed by a move to the next line.
+	for _, line := range initial {
+		want.WriteString("\r\x1b[K")
+		want.WriteString(line)
+		want.WriteString("\x1b[1B")
+	}
+	want.WriteString("\r")
+
+	// Right: only the header line (index 0) changed, so the writer moves
+	// back to the top, rewrites just that line, then moves back down to
+	// below the last line.
+	fmt.Fprintf(&want, "\r\x1b[%dA", numLines)
+	want.WriteString("\r\x1b[K")
+	want.WriteString(afterRight1[0])
+	fmt.Fprintf(&want, "\x1b[%dB\r", numLines)
+
+	// Right again: same shape, header line only.
+	fmt.Fprintf(&want, "\r\x1b[%dA", numLines)
+	want.WriteString("\r\x1b[K")
+	want.WriteString(afterRight2[0])
+	fmt.Fprintf(&want, "\x1b[%dB\r", numLines)
+
+	// Enter: only the row the piece landed in (index 6: the header line
+	// plus the bottom grid row) changed, so the writer skips down past the
+	// unchanged lines above it before clearing and rewriting it.
+	droppedLine := 6
+	fmt.Fprintf(&want, "\r\x1b[%dA", numLines)
+	fmt.Fprintf(&want, "\x1b[%dB", droppedLine)
+	want.WriteString("\r\x1b[K")
+	want.WriteString(afterEnter[droppedLine])
+	fmt.Fprintf(&want, "\x1b[%dB\r", numLines-droppedLine)
+
+	if got := w.String(); got != want.String() {
+		t.Errorf("Run() wrote:\n%q\nwant:\n%q", got, want.String())
 	}
 }
 
