@@ -1,1 +1,0 @@
-/Users/andreww/.syntropy/runs/2a04c326-738e-442b-bd04-15f35589402d/worktrees/increment-8/connect4-rust/target/debug/connect4-rust: /Users/andreww/.syntropy/runs/2a04c326-738e-442b-bd04-15f35589402d/worktrees/increment-8/connect4-rust/src/main.rs
