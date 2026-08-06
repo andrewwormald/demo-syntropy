@@ -72,7 +72,7 @@ func announcement(b *board.Board) string {
 func Run(r io.Reader, w io.Writer) error {
 	g := New()
 
-	if _, err := io.WriteString(w, board.Render(g.Board)); err != nil {
+	if _, err := io.WriteString(w, board.Render(g.Board, g.Cursor)); err != nil {
 		return err
 	}
 
@@ -91,10 +91,15 @@ func Run(r io.Reader, w io.Writer) error {
 			}
 			pending = pending[consumed:]
 
-			if g.HandleKey(key) {
-				if _, werr := io.WriteString(w, board.Render(g.Board)); werr != nil {
-					return werr
-				}
+			if key == input.Unknown {
+				continue
+			}
+
+			dropped := g.HandleKey(key)
+			if _, werr := io.WriteString(w, board.Render(g.Board, g.Cursor)); werr != nil {
+				return werr
+			}
+			if dropped {
 				if msg := announcement(g.Board); msg != "" {
 					_, werr := io.WriteString(w, msg)
 					return werr
