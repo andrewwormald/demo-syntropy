@@ -14,6 +14,15 @@ var symbols = map[Cell]byte{
 // player will drop into, one row per grid row, and a border beneath the
 // bottom row.
 func Render(b *Board, cursor int) string {
+	return strings.Join(RenderLines(b, cursor), "\n") + "\n"
+}
+
+// RenderLines returns the same ASCII representation as Render, but as a
+// slice of lines rather than a single joined string, so callers can compare
+// individual lines across renders.
+func RenderLines(b *Board, cursor int) []string {
+	lines := make([]string, 0, Rows+2)
+
 	var sb strings.Builder
 	for col := 0; col < Cols; col++ {
 		sb.WriteString("| ")
@@ -24,18 +33,26 @@ func Render(b *Board, cursor int) string {
 		}
 		sb.WriteString(" ")
 	}
-	sb.WriteString("|\n")
+	sb.WriteString("|")
+	lines = append(lines, sb.String())
+
 	for row := 0; row < Rows; row++ {
+		sb.Reset()
 		for col := 0; col < Cols; col++ {
 			sb.WriteString("| ")
 			sb.WriteByte(symbols[b.Cell(row, col)])
 			sb.WriteString(" ")
 		}
-		sb.WriteString("|\n")
+		sb.WriteString("|")
+		lines = append(lines, sb.String())
 	}
+
+	sb.Reset()
 	for col := 0; col < Cols; col++ {
 		sb.WriteString("----")
 	}
-	sb.WriteString("-\n")
-	return sb.String()
+	sb.WriteString("-")
+	lines = append(lines, sb.String())
+
+	return lines
 }
