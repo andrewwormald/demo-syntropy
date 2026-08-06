@@ -99,6 +99,123 @@ func TestDropInvalidColumn(t *testing.T) {
 	}
 }
 
+func TestWinnerNoneOnEmptyBoard(t *testing.T) {
+	b := New()
+
+	if got := b.Winner(); got != Empty {
+		t.Errorf("Winner() on empty board = %v, want Empty", got)
+	}
+}
+
+func TestWinnerHorizontal(t *testing.T) {
+	b := New()
+
+	// Player1 drops in columns 0-3, Player2 drops elsewhere in between so
+	// the row stays Player1's.
+	for col := 0; col < 4; col++ {
+		if _, err := b.Drop(col); err != nil {
+			t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+		}
+		if col < 3 {
+			if _, err := b.Drop(col); err != nil {
+				t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+			}
+		}
+	}
+
+	if got := b.Winner(); got != Player1 {
+		t.Errorf("Winner() = %v, want Player1", got)
+	}
+}
+
+func TestWinnerVertical(t *testing.T) {
+	b := New()
+
+	for i := 0; i < 4; i++ {
+		if _, err := b.Drop(0); err != nil {
+			t.Fatalf("Drop(0) call %d returned error %v, want nil", i, err)
+		}
+		if i < 3 {
+			if _, err := b.Drop(1); err != nil {
+				t.Fatalf("Drop(1) call %d returned error %v, want nil", i, err)
+			}
+		}
+	}
+
+	if got := b.Winner(); got != Player1 {
+		t.Errorf("Winner() = %v, want Player1", got)
+	}
+}
+
+func TestWinnerDiagonalUp(t *testing.T) {
+	b := New()
+
+	// Drop order chosen so Player1's turn lands on (5,0), (4,1), (3,2), and
+	// (2,3), a rising diagonal. Column 4 takes one throwaway filler drop to
+	// realign whose turn it is before the column 2 and column 3 stacks.
+	drops := []int{0, 1, 1, 2, 2, 4, 2, 3, 3, 3, 3}
+	for _, col := range drops {
+		if _, err := b.Drop(col); err != nil {
+			t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+		}
+	}
+
+	wantDiagonal := [][2]int{{5, 0}, {4, 1}, {3, 2}, {2, 3}}
+	for _, cell := range wantDiagonal {
+		if got := b.Cell(cell[0], cell[1]); got != Player1 {
+			t.Fatalf("Cell(%d, %d) = %v, want Player1", cell[0], cell[1], got)
+		}
+	}
+
+	if got := b.Winner(); got != Player1 {
+		t.Errorf("Winner() = %v, want Player1", got)
+	}
+}
+
+func TestWinnerDiagonalDown(t *testing.T) {
+	b := New()
+
+	// Drop order chosen so Player1's turn lands on (5,3), (4,2), (3,1), and
+	// (2,0), a falling diagonal. Column 4 takes one throwaway filler drop to
+	// realign whose turn it is before the column 1 and column 0 stacks.
+	drops := []int{3, 2, 2, 1, 1, 4, 1, 0, 0, 0, 0}
+	for _, col := range drops {
+		if _, err := b.Drop(col); err != nil {
+			t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+		}
+	}
+
+	wantDiagonal := [][2]int{{5, 3}, {4, 2}, {3, 1}, {2, 0}}
+	for _, cell := range wantDiagonal {
+		if got := b.Cell(cell[0], cell[1]); got != Player1 {
+			t.Fatalf("Cell(%d, %d) = %v, want Player1", cell[0], cell[1], got)
+		}
+	}
+
+	if got := b.Winner(); got != Player1 {
+		t.Errorf("Winner() = %v, want Player1", got)
+	}
+}
+
+func TestFull(t *testing.T) {
+	b := New()
+	if b.Full() {
+		t.Fatalf("Full() on empty board = true, want false")
+	}
+
+	for col := 0; col < Cols; col++ {
+		for row := 0; row < Rows; row++ {
+			if _, err := b.Drop(col); err != nil {
+				t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+			}
+		}
+	}
+
+	if !b.Full() {
+		t.Errorf("Full() on filled board = false, want true")
+	}
+}
+
 func TestDropDoesNotAdvancePlayerOnError(t *testing.T) {
 	b := New()
 

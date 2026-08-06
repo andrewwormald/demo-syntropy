@@ -47,17 +47,28 @@ func (g *Game) HandleKey(key input.Key) bool {
 
 // Full reports whether every column is filled, ending the game in a draw.
 func (g *Game) Full() bool {
-	for col := 0; col < board.Cols; col++ {
-		if g.Board.Cell(0, col) == board.Empty {
-			return false
-		}
+	return g.Board.Full()
+}
+
+// announcement returns the end-of-game message for the current board state,
+// or "" if the game is still in progress.
+func announcement(b *board.Board) string {
+	switch b.Winner() {
+	case board.Player1:
+		return "Player 1 wins!\n"
+	case board.Player2:
+		return "Player 2 wins!\n"
 	}
-	return true
+	if b.Full() {
+		return "Draw!\n"
+	}
+	return ""
 }
 
 // Run decodes raw terminal byte sequences from r and drives the game
 // against them, writing the rendered board to w after every recognized key.
-// It returns when the board fills up or r is exhausted.
+// It returns when a player wins, the board fills up, or r is exhausted,
+// writing an end-of-game announcement in the first two cases.
 func Run(r io.Reader, w io.Writer) error {
 	g := New()
 
@@ -84,8 +95,9 @@ func Run(r io.Reader, w io.Writer) error {
 				if _, werr := io.WriteString(w, board.Render(g.Board)); werr != nil {
 					return werr
 				}
-				if g.Full() {
-					return nil
+				if msg := announcement(g.Board); msg != "" {
+					_, werr := io.WriteString(w, msg)
+					return werr
 				}
 			}
 		}

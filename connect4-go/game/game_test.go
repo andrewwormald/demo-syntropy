@@ -106,6 +106,58 @@ func TestRunStopsOnEOFWithoutFullBoard(t *testing.T) {
 	}
 }
 
+func TestRunAnnouncesWinner(t *testing.T) {
+	// Alternating drops into columns 0 and 1 land Player1's pieces at every
+	// row of column 0 (Player2 always drops into column 1 in between),
+	// connecting four for Player1 vertically.
+	enter := byte('\r')
+	right := []byte{0x1b, '[', 'C'}
+	left := []byte{0x1b, '[', 'D'}
+	var keys []byte
+	for i := 0; i < 4; i++ {
+		keys = append(keys, enter)
+		if i < 3 {
+			keys = append(keys, right...)
+			keys = append(keys, enter)
+			keys = append(keys, left...)
+		}
+	}
+
+	r := bytes.NewReader(keys)
+	var w bytes.Buffer
+
+	if err := Run(r, &w); err != nil {
+		t.Fatalf("Run() returned error %v, want nil", err)
+	}
+
+	if !strings.Contains(w.String(), "Player 1 wins!") {
+		t.Errorf("Run() output = %q, want it to contain a win announcement", w.String())
+	}
+}
+
+func TestAnnouncementDraw(t *testing.T) {
+	// Column order that fills the entire board without ever connecting
+	// four, found by randomized search over valid drop sequences. Applied
+	// directly through the board rather than via Run's raw key decoding,
+	// since driving 42 drops across all 7 columns would need far more
+	// arrow-key bytes than fit in Run's read buffer.
+	drawCols := []int{
+		5, 3, 6, 6, 4, 4, 5, 6, 2, 4, 0, 3, 2, 1, 5, 1, 6, 5, 6, 5, 4, 1,
+		2, 6, 0, 4, 4, 0, 1, 2, 5, 3, 1, 2, 3, 2, 3, 0, 3, 1, 0, 0,
+	}
+
+	b := board.New()
+	for _, col := range drawCols {
+		if _, err := b.Drop(col); err != nil {
+			t.Fatalf("Drop(%d) returned error %v, want nil", col, err)
+		}
+	}
+
+	if got, want := announcement(b), "Draw!\n"; got != want {
+		t.Errorf("announcement() = %q, want %q", got, want)
+	}
+}
+
 func TestRunStopsWhenBoardFills(t *testing.T) {
 	var seq []byte
 	for col := 0; col < board.Cols; col++ {
