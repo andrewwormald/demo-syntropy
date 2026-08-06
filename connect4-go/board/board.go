@@ -12,9 +12,9 @@ const (
 type Cell int
 
 const (
-	Empty Cell = iota
-	Player1
-	Player2
+	Empty   Cell = 0
+	Player1 Cell = 1
+	Player2 Cell = 2
 )
 
 var (
