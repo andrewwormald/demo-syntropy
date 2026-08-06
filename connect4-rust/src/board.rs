@@ -67,6 +67,49 @@ impl Board {
 
         Err(DropError::ColumnFull)
     }
+
+    /// Returns the player with four connected pieces in a row, column, or
+    /// diagonal, or `Cell::Empty` if no player has won yet.
+    pub fn winner(&self) -> Cell {
+        const WIN_DIRECTIONS: [(isize, isize); 4] = [(0, 1), (1, 0), (1, 1), (1, -1)];
+
+        for row in 0..ROWS {
+            for col in 0..COLS {
+                let player = self.grid[row][col];
+                if player == Cell::Empty {
+                    continue;
+                }
+
+                for (dr, dc) in WIN_DIRECTIONS {
+                    let mut count = 1;
+                    let mut r = row as isize + dr;
+                    let mut c = col as isize + dc;
+                    while count < 4
+                        && r >= 0
+                        && r < ROWS as isize
+                        && c >= 0
+                        && c < COLS as isize
+                        && self.grid[r as usize][c as usize] == player
+                    {
+                        count += 1;
+                        r += dr;
+                        c += dc;
+                    }
+                    if count == 4 {
+                        return player;
+                    }
+                }
+            }
+        }
+
+        Cell::Empty
+    }
+
+    /// Reports whether every column is filled, meaning no more moves are
+    /// possible.
+    pub fn full(&self) -> bool {
+        (0..COLS).all(|col| self.grid[0][col] != Cell::Empty)
+    }
 }
 
 impl Default for Board {
@@ -136,6 +179,99 @@ mod tests {
             let result = b.drop(col);
             assert_eq!(result, Err(DropError::InvalidColumn), "case {name}: drop({col})");
         }
+    }
+
+    #[test]
+    fn winner_none_on_empty_board() {
+        let b = Board::new();
+        assert_eq!(b.winner(), Cell::Empty);
+    }
+
+    #[test]
+    fn winner_horizontal() {
+        let mut b = Board::new();
+
+        // Player1 drops in columns 0-3, Player2 drops elsewhere in between
+        // so the row stays Player1's.
+        for col in 0..4 {
+            b.drop(col).unwrap_or_else(|e| panic!("drop({col}) returned {e:?}"));
+            if col < 3 {
+                b.drop(col).unwrap_or_else(|e| panic!("drop({col}) returned {e:?}"));
+            }
+        }
+
+        assert_eq!(b.winner(), Cell::Player1);
+    }
+
+    #[test]
+    fn winner_vertical() {
+        let mut b = Board::new();
+
+        for i in 0..4 {
+            b.drop(0).unwrap_or_else(|e| panic!("drop(0) call {i} returned {e:?}"));
+            if i < 3 {
+                b.drop(1).unwrap_or_else(|e| panic!("drop(1) call {i} returned {e:?}"));
+            }
+        }
+
+        assert_eq!(b.winner(), Cell::Player1);
+    }
+
+    #[test]
+    fn winner_diagonal_up() {
+        let mut b = Board::new();
+
+        // Drop order chosen so Player1's turn lands on (5,0), (4,1), (3,2),
+        // and (2,3), a rising diagonal. Column 4 takes one throwaway filler
+        // drop to realign whose turn it is before the column 2 and column 3
+        // stacks.
+        let drops = [0, 1, 1, 2, 2, 4, 2, 3, 3, 3, 3];
+        for col in drops {
+            b.drop(col).unwrap_or_else(|e| panic!("drop({col}) returned {e:?}"));
+        }
+
+        let want_diagonal = [(5, 0), (4, 1), (3, 2), (2, 3)];
+        for (row, col) in want_diagonal {
+            assert_eq!(b.cell(row, col), Cell::Player1, "cell({row}, {col})");
+        }
+
+        assert_eq!(b.winner(), Cell::Player1);
+    }
+
+    #[test]
+    fn winner_diagonal_down() {
+        let mut b = Board::new();
+
+        // Drop order chosen so Player1's turn lands on (5,3), (4,2), (3,1),
+        // and (2,0), a falling diagonal. Column 4 takes one throwaway filler
+        // drop to realign whose turn it is before the column 1 and column 0
+        // stacks.
+        let drops = [3, 2, 2, 1, 1, 4, 1, 0, 0, 0, 0];
+        for col in drops {
+            b.drop(col).unwrap_or_else(|e| panic!("drop({col}) returned {e:?}"));
+        }
+
+        let want_diagonal = [(5, 3), (4, 2), (3, 1), (2, 0)];
+        for (row, col) in want_diagonal {
+            assert_eq!(b.cell(row, col), Cell::Player1, "cell({row}, {col})");
+        }
+
+        assert_eq!(b.winner(), Cell::Player1);
+    }
+
+    #[test]
+    fn full_reports_column_state() {
+        let mut b = Board::new();
+        assert!(!b.full(), "full() on empty board = true, want false");
+
+        for col in 0..COLS {
+            for row in 0..ROWS {
+                b.drop(col)
+                    .unwrap_or_else(|e| panic!("drop({col}) row {row} returned {e:?}"));
+            }
+        }
+
+        assert!(b.full(), "full() on filled board = false, want true");
     }
 
     #[test]

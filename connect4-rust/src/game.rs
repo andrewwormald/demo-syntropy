@@ -3,7 +3,7 @@
 
 use std::io::{self, Read, Write};
 
-use crate::board::{Board, COLS};
+use crate::board::{Board, Cell, COLS};
 use crate::input::{self, Key};
 use crate::renderer::render;
 
@@ -58,9 +58,25 @@ impl Default for Game {
     }
 }
 
+/// Returns the end-of-game message for the current board state, or `None`
+/// if the game is still in progress.
+fn announcement(board: &Board) -> Option<&'static str> {
+    match board.winner() {
+        Cell::Player1 => return Some("Player 1 wins!\n"),
+        Cell::Player2 => return Some("Player 2 wins!\n"),
+        Cell::Empty => {}
+    }
+    if board.full() {
+        return Some("Draw!\n");
+    }
+    None
+}
+
 /// Decodes raw terminal byte sequences from `r` and drives the game against
 /// them, writing the rendered board to `w` after every recognized key. It
-/// returns once a Quit key is decoded or `r` is exhausted.
+/// returns once a player wins, the board fills up, a Quit key is decoded, or
+/// `r` is exhausted, writing an end-of-game announcement in the first two
+/// cases.
 pub fn run<R: Read, W: Write>(mut r: R, mut w: W) -> io::Result<()> {
     let mut g = Game::new();
 
@@ -88,8 +104,14 @@ pub fn run<R: Read, W: Write>(mut r: R, mut w: W) -> io::Result<()> {
                 return Ok(());
             }
 
-            g.handle_key(key);
+            let dropped = g.handle_key(key);
             w.write_all(render(&g.board, g.cursor).as_bytes())?;
+            if dropped {
+                if let Some(msg) = announcement(&g.board) {
+                    w.write_all(msg.as_bytes())?;
+                    return Ok(());
+                }
+            }
         }
 
         if n == 0 {
@@ -176,5 +198,53 @@ mod tests {
         run(&input[..], &mut out).expect("run() should not error");
 
         assert!(!out.is_empty(), "run() wrote no output");
+    }
+
+    #[test]
+    fn run_announces_winner() {
+        // Alternating drops into columns 0 and 1 land Player1's pieces at
+        // every row of column 0 (Player2 always drops into column 1 in
+        // between), connecting four for Player1 vertically.
+        let enter = b'\r';
+        let right = [0x1b, b'[', b'C'];
+        let left = [0x1b, b'[', b'D'];
+        let mut keys = Vec::new();
+        for i in 0..4 {
+            keys.push(enter);
+            if i < 3 {
+                keys.extend_from_slice(&right);
+                keys.push(enter);
+                keys.extend_from_slice(&left);
+            }
+        }
+
+        let mut out = Vec::new();
+        run(&keys[..], &mut out).expect("run() should not error");
+
+        let rendered = String::from_utf8(out).expect("output should be valid UTF-8");
+        assert!(
+            rendered.contains("Player 1 wins!"),
+            "run() output = {rendered:?}, want it to contain a win announcement"
+        );
+    }
+
+    #[test]
+    fn announcement_draw() {
+        // Column order that fills the entire board without ever connecting
+        // four, found by randomized search over valid drop sequences.
+        // Applied directly through the board rather than via run's raw key
+        // decoding, since driving 42 drops across all 7 columns would need
+        // far more arrow-key bytes than fit in run's read buffer.
+        let draw_cols = [
+            5, 3, 6, 6, 4, 4, 5, 6, 2, 4, 0, 3, 2, 1, 5, 1, 6, 5, 6, 5, 4, 1, 2, 6, 0, 4, 4, 0, 1,
+            2, 5, 3, 1, 2, 3, 2, 3, 0, 3, 1, 0, 0,
+        ];
+
+        let mut b = Board::new();
+        for col in draw_cols {
+            b.drop(col).unwrap_or_else(|e| panic!("drop({col}) returned {e:?}"));
+        }
+
+        assert_eq!(announcement(&b), Some("Draw!\n"));
     }
 }
