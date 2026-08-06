@@ -9,6 +9,7 @@ import (
 	"golang.org/x/term"
 
 	"connect4-go/game"
+	"connect4-go/termio"
 )
 
 func main() {
@@ -33,7 +34,12 @@ func main() {
 		os.Exit(1)
 	}()
 
-	if err := game.Run(os.Stdin, os.Stdout); err != nil {
+	// Raw mode disables output post-processing (OPOST), so a bare "\n"
+	// written after this point no longer returns the cursor to column 0;
+	// translate it to "\r\n" ourselves.
+	out := termio.NewCRLFWriter(os.Stdout)
+
+	if err := game.Run(os.Stdin, out); err != nil {
 		term.Restore(fd, oldState)
 		fmt.Fprintln(os.Stderr, "connect4:", err)
 		os.Exit(1)

@@ -95,6 +95,10 @@ func Run(r io.Reader, w io.Writer) error {
 				continue
 			}
 
+			if key == input.Quit {
+				return nil
+			}
+
 			dropped := g.HandleKey(key)
 			if _, werr := io.WriteString(w, board.Render(g.Board, g.Cursor)); werr != nil {
 				return werr

@@ -93,6 +93,21 @@ func TestRunPlaysMovesFromInput(t *testing.T) {
 	}
 }
 
+func TestRunStopsOnQuit(t *testing.T) {
+	// Right, then Ctrl-C: the cursor move should be rendered but the
+	// game should stop before any further input is read.
+	r := bytes.NewReader([]byte{0x1b, '[', 'C', 0x03, 0x1b, '[', 'C'})
+	var w bytes.Buffer
+
+	if err := Run(r, &w); err != nil {
+		t.Fatalf("Run() returned error %v, want nil", err)
+	}
+
+	if w.Len() == 0 {
+		t.Errorf("Run() wrote no output")
+	}
+}
+
 func TestRunStopsOnEOFWithoutFullBoard(t *testing.T) {
 	r := bytes.NewReader([]byte{'\r'})
 	var w bytes.Buffer

@@ -13,15 +13,17 @@ const (
 	Left
 	Right
 	Enter
+	Quit
 )
 
 // Decode inspects a raw byte sequence read from a terminal in raw mode and
 // returns the Key it represents along with the number of bytes consumed
 // from buf. Left and Right correspond to the ANSI escape sequences emitted
 // by the arrow keys (ESC [ D and ESC [ C respectively); Enter corresponds
-// to a carriage return or line feed. If buf does not start with a
-// recognized sequence, Decode returns Unknown and consumes a single byte
-// so callers can skip past it.
+// to a carriage return or line feed; Quit corresponds to Ctrl-C (which
+// raw mode delivers as the literal byte 0x03 instead of SIGINT) or the
+// 'q'/'Q' keys. If buf does not start with a recognized sequence, Decode
+// returns Unknown and consumes a single byte so callers can skip past it.
 func Decode(buf []byte) (Key, int) {
 	if len(buf) == 0 {
 		return Unknown, 0
@@ -30,6 +32,8 @@ func Decode(buf []byte) (Key, int) {
 	switch buf[0] {
 	case '\r', '\n':
 		return Enter, 1
+	case 0x03, 'q', 'Q':
+		return Quit, 1
 	case 0x1b: // ESC
 		if len(buf) >= 3 && buf[1] == '[' {
 			switch buf[2] {
