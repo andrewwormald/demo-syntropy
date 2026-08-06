@@ -66,3 +66,51 @@ func (b *Board) Drop(col int) (int, error) {
 
 	return -1, ErrColumnFull
 }
+
+// winDirections are the four axes along which four-in-a-row can occur:
+// horizontal, vertical, and both diagonals. Each is checked in both senses
+// by scanning outward from every occupied cell.
+var winDirections = [4][2]int{
+	{0, 1},
+	{1, 0},
+	{1, 1},
+	{1, -1},
+}
+
+// Winner returns the player with four connected pieces in a row, column, or
+// diagonal, or Empty if no player has won yet.
+func (b *Board) Winner() Cell {
+	for row := 0; row < Rows; row++ {
+		for col := 0; col < Cols; col++ {
+			player := b.grid[row][col]
+			if player == Empty {
+				continue
+			}
+
+			for _, dir := range winDirections {
+				count := 1
+				r, c := row+dir[0], col+dir[1]
+				for count < 4 && r >= 0 && r < Rows && c >= 0 && c < Cols && b.grid[r][c] == player {
+					count++
+					r += dir[0]
+					c += dir[1]
+				}
+				if count == 4 {
+					return player
+				}
+			}
+		}
+	}
+	return Empty
+}
+
+// Full reports whether every column is filled, meaning no more moves are
+// possible.
+func (b *Board) Full() bool {
+	for col := 0; col < Cols; col++ {
+		if b.grid[0][col] == Empty {
+			return false
+		}
+	}
+	return true
+}
